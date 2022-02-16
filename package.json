@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "build": "node scripts/build.js",
-    "sync": "azcopy sync --recursive ./src %BLOB_STORAGE_URL%/trusted-Speedometer",
+    "sync": "azcopy sync --recursive ./src %BLOB_STORAGE_URL%",
     "serve": "node scripts/serve.js",
     "test": "node scripts/test.js"
   },

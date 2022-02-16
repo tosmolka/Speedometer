@@ -2,13 +2,7 @@ const webdriver = require('selenium-webdriver');
 require('chromedriver');
 require('edgedriver');
 
-if (!process.env.BLOB_STORAGE_URL ||
-    !process.env.BROWSERSTACK_USERNAME || 
-    !process.env.BROWSERSTACK_ACCESS_KEY) {
-  throw new Error("Please set environment variables BLOB_STORAGE_URL, BROWSERSTACK_USERNAME and BROWSERSTACK_ACCESS_KEY");
-}
-
-const rootUrl = `${process.env.BLOB_STORAGE_URL}/trusted-Speedometer/Speedometer`;
+const rootUrl = `${process.env.BLOB_STORAGE_URL || "http://localhost:8088"}/Speedometer`;
 
 /**
  * 
@@ -16,11 +10,14 @@ const rootUrl = `${process.env.BLOB_STORAGE_URL}/trusted-Speedometer/Speedometer
  * @param {boolean} withTrustedtypes
  */
 async function runSpeedometer(capabilities, withTrustedtypes = false) {
-  let driver = new webdriver.Builder()
-    .usingServer(`https://${process.env.BROWSERSTACK_USERNAME}:${process.env.BROWSERSTACK_ACCESS_KEY}@hub-cloud.browserstack.com/wd/hub`)
-    .withCapabilities(capabilities)
-    .build();
+  let builder = new webdriver.Builder().withCapabilities(capabilities);
   
+  if (process.env.BROWSERSTACK_USERNAME && process.env.BROWSERSTACK_ACCESS_KEY) {
+    builder = builder.usingServer(`https://${process.env.BROWSERSTACK_USERNAME}:${process.env.BROWSERSTACK_ACCESS_KEY}@hub-cloud.browserstack.com/wd/hub`);
+  }
+
+  let driver = builder.build();
+
   const getElementText = async (elementId) => {
     let element = await driver.wait(webdriver.until.elementLocated(webdriver.By.id(elementId)));
     return await element.getText();
