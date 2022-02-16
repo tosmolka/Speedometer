@@ -10,7 +10,7 @@ SimplePromise.prototype.then = function (callback) {
         throw "SimplePromise doesn't support multiple calls to then";
     this._callback = callback;
     this._chainedPromise = new SimplePromise;
-
+    
     if (this._resolved)
         this.resolve(this._resolvedValue);
 
@@ -142,7 +142,8 @@ BenchmarkRunner.prototype._runTest = function(suite, test, prepareReturnValue, c
         var endTime = now();
         self._frame.contentWindow._unusedHeightValue = height; // Prevent dead code elimination.
         self._writeMark(suite.name + '.' + test.name + '-async-end');
-        callback(syncTime, endTime - startTime, height);
+        var usedJSHeapSize = window.performance && window.performance.memory.usedJSHeapSize / 1048576.0; // MB
+        callback(syncTime, endTime - startTime, usedJSHeapSize, height);
     }, 0);
 }
 
@@ -253,12 +254,13 @@ BenchmarkRunner.prototype._runTestAndRecordResults = function (state) {
 
     var self = this;
     setTimeout(function () {
-        self._runTest(suite, test, self._prepareReturnValue, function (syncTime, asyncTime) {
-            var suiteResults = self._measuredValues.tests[suite.name] || {tests:{}, total: 0};
+        self._runTest(suite, test, self._prepareReturnValue, function (syncTime, asyncTime, usedJSHeapSize) {
+            var suiteResults = self._measuredValues.tests[suite.name] || {tests:{}, total: 0, usedJSHeapSizes: []};
             var total = syncTime + asyncTime;
             self._measuredValues.tests[suite.name] = suiteResults;
             suiteResults.tests[test.name] = {tests: {'Sync': syncTime, 'Async': asyncTime}, total: total};
             suiteResults.total += total;
+            suiteResults.usedJSHeapSizes.push(usedJSHeapSize);
 
             if (self._client && self._client.didRunTest)
                 self._client.didRunTest(suite, test);
@@ -270,16 +272,49 @@ BenchmarkRunner.prototype._runTestAndRecordResults = function (state) {
     return promise;
 }
 
+BenchmarkRunner.computeStatistics = function (times, unit) {
+    var data = times.slice();
+
+    // Add values from the smallest to the largest to avoid the loss of significance
+    data.sort(function(a,b){return a-b;});
+
+    var middle = Math.floor(data.length / 2);
+    var result = {
+        min: data[0],
+        max: data[data.length - 1],
+        median: data.length % 2 ? data[middle] : (data[middle - 1] + data[middle]) / 2,
+    };
+
+    // Compute the mean and variance using Knuth's online algorithm (has good numerical stability).
+    var squareSum = 0;
+    result.values = times;
+    result.mean = 0;
+    for (var i = 0; i < data.length; ++i) {
+        var x = data[i];
+        var delta = x - result.mean;
+        var sweep = i + 1.0;
+        result.mean += delta / sweep;
+        squareSum += delta * (x - result.mean);
+    }
+    result.variance = data.length <= 1 ? 0 : squareSum / (data.length - 1);
+    result.stdev = Math.sqrt(result.variance);
+    result.unit = unit || "ms";
+
+    return result;
+}
+
 BenchmarkRunner.prototype._finalize = function () {
     this._removeFrame();
 
     if (this._client && this._client.didRunSuites) {
         var product = 1;
         var values = [];
+        var usedJSHeapSizes = [];
         for (var suiteName in this._measuredValues.tests) {
             var suiteTotal = this._measuredValues.tests[suiteName].total;
             product *= suiteTotal;
             values.push(suiteTotal);
+            usedJSHeapSizes.push(...this._measuredValues.tests[suiteName].usedJSHeapSizes);
         }
 
         values.sort(function (a, b) { return a - b }); // Avoid the loss of significance for the sum.
@@ -291,6 +326,7 @@ BenchmarkRunner.prototype._finalize = function () {
         this._measuredValues.mean = total / values.length;
         this._measuredValues.geomean = geomean;
         this._measuredValues.score = 60 * 1000 / geomean / correctionFactor;
+        this._measuredValues.usedJSHeapSizes = usedJSHeapSizes;
         this._client.didRunSuites(this._measuredValues);
     }
 

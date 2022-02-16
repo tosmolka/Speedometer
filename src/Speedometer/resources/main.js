@@ -37,9 +37,11 @@ window.benchmarkClient = {
         document.getElementById('result-number').textContent = results.formattedMean;
         if (results.formattedDelta)
             document.getElementById('confidence-number').textContent = '\u00b1 ' + results.formattedDelta;
+        document.getElementById('result-heap-mean').textContent = results.formattedHeapMean;
 
         this._populateDetailedResults(results.formattedValues);
         document.getElementById('results-with-statistics').textContent = results.formattedMeanAndDelta;
+        document.getElementById('results-heap-stats').textContent = results.formattedHeapStats;
 
         if (this.displayUnit == 'ms') {
             document.getElementById('show-summary').style.display = 'none';
@@ -63,6 +65,9 @@ window.benchmarkClient = {
             var nonDecimalDigitCount = number < 1 ? 0 : (Math.floor(Math.log(number)/Math.log(10)) + 1);
             return number.toPrecision(Math.max(nonDecimalDigitCount, Math.min(6, sigFig)));
         }
+
+        var usedJSHeapSizes = Array.prototype.concat.apply([], measuredValuesList.map((measuredValues) => {return measuredValues.usedJSHeapSizes;}));
+        var usedJSHeapStats = BenchmarkRunner.computeStatistics(usedJSHeapSizes, 'MB');
 
         var values = measuredValuesList.map(valueForUnit);
         var sum = values.reduce(function (a, b) { return a + b; }, 0);
@@ -90,6 +95,13 @@ window.benchmarkClient = {
             formattedMean: formattedMean,
             formattedDelta: formattedDelta,
             formattedMeanAndDelta: formattedMean + (formattedDelta ? ' \xb1 ' + formattedDelta + ' (' + formattedPercentDelta + ')' : ''),
+            formattedHeapMean: `${toSigFigPrecision(usedJSHeapStats.mean, 3)} MB`,
+            formattedHeapStats: [
+                `Min: ${toSigFigPrecision(usedJSHeapStats.min, 3)} MB`, 
+                `Max: ${toSigFigPrecision(usedJSHeapStats.max, 3)} MB`,
+                `Mean: ${toSigFigPrecision(usedJSHeapStats.mean, 3)} MB`,
+                `StDev: ${toSigFigPrecision(usedJSHeapStats.stdev, 3)} MB`,
+            ].join(', '),
         };
     },
     _addDetailedResultsRow: function (table, iterationNumber, value) {
@@ -240,7 +252,23 @@ function showAbout() {
     showSection('about', true);
 }
 
+var parseQueryString = (function (pairList) {
+    var pairs = {};
+    for (var i = 0; i < pairList.length; ++i) {
+        var keyValue = pairList[i].split('=', 2);
+        if (keyValue.length == 1)
+            pairs[keyValue[0]] = '';
+        else
+            pairs[keyValue[0]] = decodeURIComponent(keyValue[1].replace(/\+/g, ' '));
+    }
+    return pairs;
+})(window.location.search.substr(1).split('&'));
+
 window.addEventListener('DOMContentLoaded', function () {
     if (benchmarkClient.prepareUI)
         benchmarkClient.prepareUI();
+
+
+    if (parseQueryString['startAutomatically'] !== undefined)
+        startTest();
 });

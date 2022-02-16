@@ -4,6 +4,7 @@
 <title>Speedometer 2.0 Interactive Runner</title>
 <script src="resources/benchmark-runner.js" defer></script>
 <script src="resources/tests.js" defer></script>
+<script src="resources/tests-tt.js" data-mode="append" defer></script>
 <style>
 iframe { border: 1px solid black; }
 ol { list-style: none; margin: 0; padding: 0; }
@@ -140,6 +141,7 @@ function startTest() {
                     }
                 }
                 results += suiteName + ' : ' + suiteResults.total + ' ms\n';
+                results += suiteName + ' : Heap: ' + suiteResults.usedJSHeapSizes.join(', ') + '\n';
             }
             results += 'Arithmetic Mean : ' + measuredValues.mean  + ' ms\n';
             results += 'Geometric Mean : ' + measuredValues.geomean  + ' ms\n';

@@ -2921,7 +2921,7 @@ function endsWith(sub, str)
 function indexes(sub, str)
 {
     var subLen = sub.length;
-
+    
     if (subLen < 1)
     {
         return _elm_lang$core$Native_List.Nil;
@@ -2934,8 +2934,8 @@ function indexes(sub, str)
     {
         is.push(i);
         i = i + subLen;
-    }
-
+    }   
+    
     return _elm_lang$core$Native_List.fromArray(is);
 }
 
@@ -4568,7 +4568,7 @@ function saveSlot(a, b, index, slot)
     set2(a.lengths, b.lengths, index, l + length(slot));
 }
 
-// Creates a node or leaf with a given length at their arrays for performance.
+// Creates a node or leaf with a given length at their arrays for perfomance.
 // Is only used by shuffle.
 function createNode(h, length)
 {
